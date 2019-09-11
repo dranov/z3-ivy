@@ -1641,7 +1641,7 @@ _ext = 'dll' if sys.platform in ('win32', 'cygwin') else 'dylib' if sys.platform
 _lib = None
 _default_dirs = ['.',
                  os.path.dirname(os.path.abspath(__file__)),
-                 pkg_resources.resource_filename('z3', 'lib'),
+#                 pkg_resources.resource_filename('z3', 'lib'),
                  os.path.join(sys.prefix, 'lib'),
                  None]
 _all_dirs = []
