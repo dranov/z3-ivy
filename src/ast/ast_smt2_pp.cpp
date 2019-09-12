@@ -387,7 +387,7 @@ format * smt2_pp_environment::pp_string_literal(app * t) {
 }
 
 format * smt2_pp_environment::pp_datalog_literal(app * t) {
-    uint64 v;
+    uint64_t v;
     VERIFY (get_dlutil().is_numeral(t, v));
     std::ostringstream buffer;
     buffer << v;
@@ -912,7 +912,7 @@ class smt2_printer {
                 var_name = mk_smt2_quoted_symbol (*it);
             }
             else {
-              var_name = it->str ();\
+                var_name = it->str ();          
             }
             buf.push_back(mk_seq1<format**,f2f>(m(), fs, fs+1, f2f(), var_name.c_str ()));
         }

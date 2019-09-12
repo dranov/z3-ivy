@@ -239,7 +239,6 @@ namespace datatype {
             map<symbol, def*, symbol_hash_proc, symbol_eq_proc> m_defs; 
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
-            util & u() const;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
@@ -279,6 +278,8 @@ namespace datatype {
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
+            util & u() const;
+
         private:
             bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
         
@@ -362,12 +363,14 @@ namespace datatype {
         bool is_recognizer(app * f) const { return is_recognizer0(f) || is_is(f); }
         bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
+        app* mk_is(func_decl * c, expr *f);
         ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
         unsigned get_datatype_num_constructors(sort * ty);
         unsigned get_datatype_num_parameter_sorts(sort * ty);
         sort*  get_datatype_parameter_sort(sort * ty, unsigned idx);
         func_decl * get_non_rec_constructor(sort * ty);
         func_decl * get_constructor_recognizer(func_decl * constructor);
+        func_decl * get_constructor_is(func_decl * constructor);
         ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;

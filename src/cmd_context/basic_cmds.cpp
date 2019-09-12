@@ -395,7 +395,7 @@ class set_option_cmd : public set_get_option_cmd {
             env_params::updt_params();
             ctx.global_params_updated();
         }
-        catch (gparams::exception ex) {
+        catch (const gparams::exception & ex) {
             throw cmd_exception(ex.msg());
         }
     }
@@ -503,7 +503,7 @@ public:
             ctx.set_random_seed(to_unsigned(val));
         }
         else if (m_option == m_reproducible_resource_limit) {
-            ctx.params().m_rlimit = to_unsigned(val);
+            ctx.params().set_rlimit(to_unsigned(val));
         }
         else if (m_option == m_verbosity) {
             set_verbosity_level(to_unsigned(val));
@@ -620,7 +620,7 @@ public:
             try {
                 ctx.regular_stream() << gparams::get_value(opt) << std::endl;
             }
-            catch (gparams::exception ex) {
+            catch (const gparams::exception & ex) {
                 ctx.print_unsupported(opt, m_line, m_pos);
             }
         }

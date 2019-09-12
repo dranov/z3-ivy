@@ -17,6 +17,11 @@ Revision History:
 
 --*/
 #include<iostream>
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/file_path.h"
+#include "util/scoped_timer.h"
+#include "ast/ast_pp.h"
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
@@ -26,14 +31,10 @@ Revision History:
 #include "api/api_stats.h"
 #include "api/api_ast_vector.h"
 #include "solver/tactic2solver.h"
-#include "util/scoped_ctrl_c.h"
-#include "util/cancel_eh.h"
-#include "util/file_path.h"
-#include "util/scoped_timer.h"
+#include "solver/smt_logics.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
-#include "solver/smt_logics.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "sat/dimacs.h"
@@ -360,7 +361,9 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
-                mk_c(c)->handle_exception(ex);
+                if (!mk_c(c)->m().canceled()) {
+                    mk_c(c)->handle_exception(ex);
+                }
                 return Z3_L_UNDEF;
             }
         }

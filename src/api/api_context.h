@@ -34,6 +34,7 @@ Revision History:
 #include "util/event_handler.h"
 #include "cmd_context/tactic_manager.h"
 #include "cmd_context/context_params.h"
+#include "cmd_context/cmd_context.h"
 #include "api/api_polynomial.h"
 #include "util/hashtable.h"
 
@@ -53,13 +54,13 @@ namespace api {
         context_params             m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing reference counters.
         scoped_ptr<ast_manager>    m_manager;
+        scoped_ptr<cmd_context>    m_cmd;
         add_plugins                m_plugins;
 
         arith_util                 m_arith_util;
         bv_util                    m_bv_util;
         datalog::dl_decl_util      m_datalog_util;
         fpa_util                   m_fpa_util;
-        datatype_util              m_dtutil;
         seq_util                   m_sutil;
 
         // Support for old solver API
@@ -114,17 +115,18 @@ namespace api {
         ast_manager & m() const { return *(m_manager.get()); }
 
         context_params & params() { return m_params; }
+        scoped_ptr<cmd_context>& cmd() { return m_cmd; }
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
         bool use_auto_config() const { return m_params.m_auto_config; }
         unsigned get_timeout() const { return m_params.m_timeout; }
-        unsigned get_rlimit() const { return m_params.m_rlimit; }
+        unsigned get_rlimit() const { return m_params.rlimit(); }
         arith_util & autil() { return m_arith_util; }
         bv_util & bvutil() { return m_bv_util; }
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
         fpa_util & fpautil() { return m_fpa_util; }
-        datatype_util& dtutil() { return m_dtutil; }
+        datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }

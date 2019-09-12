@@ -177,7 +177,7 @@ zstring zstring::replace(zstring const& src, zstring const& dst) const {
         return zstring(*this);
     }
     if (src.length() == 0) {
-        return zstring(*this);
+        return dst + zstring(*this);
     }
     bool found = false;
     for (unsigned i = 0; i < length(); ++i) {
@@ -212,6 +212,9 @@ std::string zstring::encode() const {
         }
         else if (ch == '\\') {
             strm << "\\\\";
+        }
+        else if (ch >= 128) {
+            strm << "\\x" << std::hex << (unsigned)ch << std::dec; 
         }
         else {
             strm << (char)(ch);
@@ -253,6 +256,7 @@ bool zstring::contains(zstring const& other) const {
 
 int zstring::indexof(zstring const& other, int offset) const {
     SASSERT(offset >= 0);
+    if (static_cast<unsigned>(offset) <= length() && other.length() == 0) return offset;
     if (static_cast<unsigned>(offset) == length()) return -1;
     if (other.length() + offset > length()) return -1;
     unsigned last = length() - other.length();
@@ -671,9 +675,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
     case _OP_REGEXP_FULL_CHAR:
-        if (!range) {
-            range = m_re;
-        }
+        if (!range) range = m_re;
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.allchar"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_FULL_CHAR_SET));
 
@@ -690,9 +692,7 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, range, func_decl_info(m_family_id, k));        
 
     case _OP_REGEXP_EMPTY:
-        if (!range) {
-            range = m_re;
-        }
+        if (!range) range = m_re;
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(symbol("re.nostr"), arity, domain, rng, func_decl_info(m_family_id, OP_RE_EMPTY_SET));
 
