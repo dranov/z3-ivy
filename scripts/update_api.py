@@ -1648,20 +1648,20 @@ _default_dirs = ['.',
                  None]
 _all_dirs = []
 
-if sys.version < '3':
-  import __builtin__
-  if hasattr(__builtin__, "Z3_LIB_DIRS"):
-    _all_dirs = __builtin__.Z3_LIB_DIRS
-else:
-  import builtins
-  if hasattr(builtins, "Z3_LIB_DIRS"):
-    _all_dirs = builtins.Z3_LIB_DIRS
-
-for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
-  if v in os.environ:
-    lp = os.environ[v];
-    lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
-    _all_dirs.extend(lds)
+#if sys.version < '3':
+#  import __builtin__
+#  if hasattr(__builtin__, "Z3_LIB_DIRS"):
+#    _all_dirs = __builtin__.Z3_LIB_DIRS
+#else:
+#  import builtins
+#  if hasattr(builtins, "Z3_LIB_DIRS"):
+#    _all_dirs = builtins.Z3_LIB_DIRS
+#
+#for v in ('Z3_LIBRARY_PATH', 'PATH', 'PYTHONPATH'):
+#  if v in os.environ:
+#    lp = os.environ[v];
+#    lds = lp.split(';') if sys.platform in ('win32') else lp.split(':')
+#    _all_dirs.extend(lds)
 
 _all_dirs.extend(_default_dirs)
 
@@ -1676,12 +1676,12 @@ for d in _all_dirs:
   except:
     pass
 
-if _lib is None:
-  # If all else failed, ask the system to find it.
-  try:
-    _lib = ctypes.CDLL('libz3.%s' % _ext)
-  except:
-    pass
+#if _lib is None:
+#  # If all else failed, ask the system to find it.
+#  try:
+#    _lib = ctypes.CDLL('libz3.%s' % _ext)
+#  except:
+#    pass
 
 if _lib is None:
   print("Could not find libz3.%s; consider adding the directory containing it to" % _ext)
