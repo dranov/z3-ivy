@@ -86,7 +86,7 @@ struct enum2bv_rewriter::imp {
         void throw_non_fd(expr* e) {
             std::stringstream strm;
             strm << "unable to handle nested data-type expression " << mk_pp(e, m);
-            throw rewriter_exception(strm.str().c_str());
+            throw rewriter_exception(strm.str());
         }
 
         void check_for_fd(unsigned n, expr* const* args) {
@@ -124,7 +124,7 @@ struct enum2bv_rewriter::imp {
 
                 // create a fresh variable, add bounds constraints for it.
                 unsigned nc = m_dt.get_datatype_num_constructors(s);
-                result = m.mk_fresh_const(f->get_name().str().c_str(), m_bv.mk_sort(bv_size));
+                result = m.mk_fresh_const(f->get_name(), m_bv.mk_sort(bv_size));
                 f_fresh = to_app(result)->get_decl();
                 if (!is_power_of_two(nc) || nc == 1) {
                     m_imp.m_bounds.push_back(m_bv.mk_ule(result, m_bv.mk_numeral(nc-1, bv_size)));
@@ -159,6 +159,8 @@ struct enum2bv_rewriter::imp {
             expr * const * new_no_patterns,
             expr_ref & result,
             proof_ref & result_pr) {
+
+            if (q->get_kind() == lambda_k) return false;
             m_sorts.reset();
             expr_ref_vector bounds(m);
             bool found = false;
@@ -182,15 +184,20 @@ struct enum2bv_rewriter::imp {
             }
             expr_ref new_body_ref(old_body, m), tmp(m);
             if (!bounds.empty()) {
-                if (q->is_forall()) {
+                switch (q->get_kind()) {
+                case forall_k:
                     new_body_ref = m.mk_implies(mk_and(bounds), new_body_ref);
-                }
-                else {
+                    break;
+                case exists_k:
                     bounds.push_back(new_body_ref);
                     new_body_ref = mk_and(bounds);
+                    break;
+                case lambda_k:
+                    UNREACHABLE();
+                    break;
                 }
             }
-            result = m.mk_quantifier(q->is_forall(), q->get_num_decls(), m_sorts.c_ptr(), q->get_decl_names(), new_body_ref, 
+            result = m.mk_quantifier(q->get_kind(), q->get_num_decls(), m_sorts.c_ptr(), q->get_decl_names(), new_body_ref, 
                                      q->get_weight(), q->get_qid(), q->get_skid(), 
                                      q->get_num_patterns(), new_patterns,
                                      q->get_num_no_patterns(), new_no_patterns);

@@ -23,18 +23,16 @@ Revision History:
 namespace smt {
 
     bool checker::all_args(app * a, bool is_true) {
-        unsigned num_args = a->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
-            if (!check(a->get_arg(i), is_true))
+        for (expr* arg : *a) {
+            if (!check(arg, is_true))
                 return false;
         }
         return true;
     }
 
     bool checker::any_arg(app * a, bool is_true) {
-        unsigned num_args = a->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
-            if (check(a->get_arg(i), is_true))
+        for (expr* arg : *a) {
+            if (check(arg, is_true))
                 return true;
         }
         return false;
@@ -61,8 +59,20 @@ namespace smt {
                 return is_true ? any_arg(a, true) : all_args(a, false);
             case OP_AND:
                 return is_true ? all_args(a, true) : any_arg(a, false);
-            case OP_IFF:
-                if (is_true) {
+            case OP_EQ:
+                if (!m_manager.is_iff(a)) {
+                    enode * lhs = get_enode_eq_to(a->get_arg(0));
+                    enode * rhs = get_enode_eq_to(a->get_arg(1));
+                    if (lhs && rhs && m_context.is_relevant(lhs) && m_context.is_relevant(rhs)) {
+                        if (is_true && lhs->get_root() == rhs->get_root())
+                            return true;
+                        // if (!is_true && m_context.is_ext_diseq(lhs, rhs, 2))
+                        if (!is_true && m_context.is_diseq(lhs, rhs))
+                            return true;
+                    }
+                    return false;
+                }
+                else if (is_true) {
                     return 
                         (check(a->get_arg(0), true) &&
                          check(a->get_arg(1), true)) ||
@@ -85,18 +95,6 @@ namespace smt {
                     }
                 }
                 return check(a->get_arg(1), is_true) && check(a->get_arg(2), is_true);
-            }
-            case OP_EQ: {
-                enode * lhs = get_enode_eq_to(a->get_arg(0));
-                enode * rhs = get_enode_eq_to(a->get_arg(1));
-                if (lhs && rhs && m_context.is_relevant(lhs) && m_context.is_relevant(rhs)) {
-                    if (is_true && lhs->get_root() == rhs->get_root())
-                        return true;
-                    // if (!is_true && m_context.is_ext_diseq(lhs, rhs, 2))
-                    if (!is_true && m_context.is_diseq(lhs, rhs))
-                        return true;
-                }
-                return false;
             }
             default:
                 break;

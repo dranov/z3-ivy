@@ -50,12 +50,9 @@ public class Model extends Z3Object {
     public Expr getConstInterp(FuncDecl f)
     {
         getContext().checkContextMatch(f);
-        if (f.getArity() != 0
-                || Native.getSortKind(getContext().nCtx(),
-                        Native.getRange(getContext().nCtx(), f.getNativeObject())) == Z3_sort_kind.Z3_ARRAY_SORT
-                        .toInt())
+        if (f.getArity() != 0)
             throw new Z3Exception(
-                    "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use getFuncInterp.");
+                    "Non-zero arity functions have FunctionInterpretations as a model. Use getFuncInterp.");
 
         long n = Native.modelGetConstInterp(getContext().nCtx(), getNativeObject(),
                 f.getNativeObject());
@@ -91,11 +88,11 @@ public class Model extends Z3Object {
                     return null;
                 else
                 {
-                    if (!Native.isAsArray(getContext().nCtx(), n))
-                        throw new Z3Exception(
-                                "Argument was not an array constant");
-                    long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
-                    return getFuncInterp(new FuncDecl(getContext(), fd));
+                    if (Native.isAsArray(getContext().nCtx(), n)) {
+                      long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
+                      return getFuncInterp(new FuncDecl(getContext(), fd));
+                    }
+		    return null;
                 }
             } else
             {

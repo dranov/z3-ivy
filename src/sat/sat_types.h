@@ -25,7 +25,13 @@ Revision History:
 #include "util/z3_exception.h"
 #include "util/common_msgs.h"
 #include "util/vector.h"
+#include "util/uint_set.h"
+#include "util/stopwatch.h"
 #include<iomanip>
+
+class params_ref;
+class reslimit;
+class statistics;
 
 namespace sat {
 #define SAT_VB_LVL 10
@@ -103,14 +109,14 @@ namespace sat {
     inline bool operator==(literal const & l1, literal const & l2) { return l1.m_val == l2.m_val; }
     inline bool operator!=(literal const & l1, literal const & l2) { return l1.m_val != l2.m_val; }
 
-    inline std::ostream & operator<<(std::ostream & out, literal l) { out << (l.sign() ? "-" : "") << l.var(); return out; }
+    inline std::ostream & operator<<(std::ostream & out, literal l) { if (l == null_literal) out << "null"; else out << (l.sign() ? "-" : "") << l.var(); return out; }
 
     typedef svector<literal> literal_vector;
     typedef std::pair<literal, literal> literal_pair;
 
-    typedef unsigned clause_offset;
-    typedef unsigned ext_constraint_idx;
-    typedef unsigned ext_justification_idx;
+    typedef size_t clause_offset;
+    typedef size_t ext_constraint_idx;
+    typedef size_t ext_justification_idx;
 
     struct literal2unsigned { unsigned operator()(literal l) const { return l.to_uint(); } };
 
@@ -118,11 +124,10 @@ namespace sat {
 
     typedef approx_set_tpl<bool_var, u2u, unsigned> var_approx_set;
 
-    enum phase {
-        POS_PHASE, NEG_PHASE, PHASE_NOT_AVAILABLE
-    };
-
     class solver;
+    class parallel;
+    class lookahead;
+    class unit_walk;
     class clause;
     class clause_wrapper;
     class integrity_checker;
@@ -137,6 +142,7 @@ namespace sat {
 
     typedef svector<lbool> model;
 
+    inline void negate(literal_vector& ls) { for (unsigned i = 0; i < ls.size(); ++i) ls[i].neg(); }
     inline lbool value_at(bool_var v, model const & m) { return m[v]; }
     inline lbool value_at(literal l, model const & m) { lbool r = value_at(l.var(), m); return l.sign() ? ~r : r; }
 
@@ -150,79 +156,7 @@ namespace sat {
         return out;
     }
 
-    class uint_set {
-        svector<char>        m_in_set;
-        svector<unsigned>    m_set;
-    public:
-        typedef svector<unsigned>::const_iterator iterator;
-        void insert(unsigned v) {
-            m_in_set.reserve(v+1, false);
-            if (m_in_set[v])
-                return;
-            m_in_set[v] = true;
-            m_set.push_back(v);
-        }
-
-        void remove(unsigned v) {
-            if (contains(v)) {
-                m_in_set[v] = false;
-                unsigned i = 0;
-                for (i = 0; i < m_set.size() && m_set[i] != v; ++i)
-                    ;
-                SASSERT(i < m_set.size());
-                m_set[i] = m_set.back();
-                m_set.pop_back();
-            }
-        }
-
-        uint_set& operator=(uint_set const& other) {
-            m_in_set = other.m_in_set;
-            m_set = other.m_set;
-            return *this;
-        }
-
-        bool contains(unsigned v) const {
-            return v < m_in_set.size() && m_in_set[v] != 0;
-        }
-
-        bool empty() const {
-            return m_set.empty();
-        }
-
-        // erase some variable from the set
-        unsigned erase() {
-            SASSERT(!empty());
-            unsigned v = m_set.back();
-            m_set.pop_back();
-            m_in_set[v] = false;
-            return v;
-        }
-        unsigned size() const { return m_set.size(); }
-        iterator begin() const { return m_set.begin(); }
-        iterator end() const { return m_set.end(); }
-        void reset() { m_set.reset(); m_in_set.reset(); }
-        void finalize() { m_set.finalize(); m_in_set.finalize(); }
-        uint_set& operator&=(uint_set const& other) {
-            unsigned j = 0;
-            for (unsigned i = 0; i < m_set.size(); ++i) {
-                if (other.contains(m_set[i])) {
-                    m_set[j] = m_set[i];
-                    ++j;
-                }
-                else {
-                    m_in_set[m_set[i]] = false;
-                }
-            }
-            m_set.resize(j);
-            return *this;
-        }
-        uint_set& operator|=(uint_set const& other) {
-            for (unsigned i = 0; i < other.m_set.size(); ++i) {
-                insert(other.m_set[i]);
-            }
-            return *this;
-        }
-    };
+    typedef tracked_uint_set uint_set;
 
     typedef uint_set bool_var_set;
 
@@ -288,8 +222,11 @@ namespace sat {
 
     inline std::ostream & operator<<(std::ostream & out, mem_stat const & m) {
         double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        out << " :memory " << std::fixed << std::setprecision(2) << mem;
-        return out;
+        return out << std::fixed << std::setprecision(2) << mem;
+    }
+
+    inline std::ostream& operator<<(std::ostream& out, stopwatch const& sw) {
+        return out << " :time " << std::fixed << std::setprecision(2) << sw.get_seconds();
     }
 
     struct dimacs_lit {
@@ -321,6 +258,22 @@ namespace sat {
     inline std::ostream & operator<<(std::ostream & out, literal_vector const & ls) {
         return out << mk_lits_pp(ls.size(), ls.c_ptr());
     }
+
+    class i_local_search {
+    public:
+        virtual ~i_local_search() {}
+        virtual void add(solver const& s) = 0;
+        virtual void updt_params(params_ref const& p) = 0;
+        virtual void set_seed(unsigned s) = 0;
+        virtual lbool check(unsigned sz, literal const* assumptions, parallel* par) = 0;
+        virtual void reinit(solver& s) = 0;        
+        virtual unsigned num_non_binary_clauses() const = 0;
+        virtual reslimit& rlimit() = 0;
+        virtual model const& get_model() const = 0;
+        virtual void collect_statistics(statistics& st) const = 0;        
+        virtual double get_priority(bool_var v) const { return 0; }
+
+    };
 };
 
 #endif

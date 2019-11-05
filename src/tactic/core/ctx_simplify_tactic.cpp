@@ -18,7 +18,6 @@ Notes:
 --*/
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "ast/rewriter/mk_simplified_app.h"
-#include "util/cooperate.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 
@@ -202,7 +201,6 @@ struct ctx_simplify_tactic::imp {
     }
 
     void checkpoint() {
-        cooperate("ctx_simplify_tactic");
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         if (m.canceled())
@@ -621,11 +619,7 @@ void ctx_simplify_tactic::get_param_descrs(param_descrs & r) {
 }
 
 void ctx_simplify_tactic::operator()(goal_ref const & in,
-                                     goal_ref_buffer & result,
-                                     model_converter_ref & mc,
-                                     proof_converter_ref & pc,
-                                     expr_dependency_ref & core) {
-    mc = nullptr; pc = nullptr; core = nullptr;
+                                     goal_ref_buffer & result) {
     (*m_imp)(*(in.get()));
     in->inc_depth();
     result.push_back(in.get());

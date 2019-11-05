@@ -19,6 +19,15 @@ Revision History:
 
 #include "util/util.h"
 
+#ifndef SINGLE_THREAD
+#include <mutex>
+#include <thread>
+
+static std::mutex g_verbose_mux;
+void verbose_lock() { g_verbose_mux.lock(); }
+void verbose_unlock() { g_verbose_mux.unlock(); }
+#endif
+
 static unsigned g_verbosity_level = 0;
 
 void set_verbosity_level(unsigned lvl) {
@@ -34,6 +43,17 @@ static std::ostream* g_verbose_stream = &std::cerr;
 void set_verbose_stream(std::ostream& str) {
     g_verbose_stream = &str;
 }
+
+#ifndef SINGLE_THREAD
+static std::thread::id g_thread_id = std::this_thread::get_id();
+static bool g_is_threaded = false;
+
+bool is_threaded() {
+    if (g_is_threaded) return true;
+    g_is_threaded = std::this_thread::get_id() != g_thread_id;
+    return g_is_threaded;
+}
+#endif
 
 std::ostream& verbose_stream() {
     return *g_verbose_stream;

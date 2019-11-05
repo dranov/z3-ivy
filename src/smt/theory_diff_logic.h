@@ -307,8 +307,6 @@ namespace smt {
         void init_model(model_generator & m) override;
         
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
-
-        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
                 
         void display(std::ostream & out) const override;
         
@@ -321,10 +319,10 @@ namespace smt {
         //
         // -----------------------------------
 
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val);
         inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
         inf_eps value(theory_var v) override;
         theory_var add_objective(app* term) override;
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val);
 
         bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 

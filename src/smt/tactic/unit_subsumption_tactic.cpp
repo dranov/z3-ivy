@@ -39,11 +39,8 @@ struct unit_subsumption_tactic : public tactic {
 
     void cleanup() override {}
 
-    void operator()(/* in */  goal_ref const & in,
-                    /* out */ goal_ref_buffer & result,
-                    /* out */ model_converter_ref & mc,
-                    /* out */ proof_converter_ref & pc,
-                    /* out */ expr_dependency_ref & core) override {
+    void operator()(/* in */  goal_ref const & in, 
+                    /* out */ goal_ref_buffer & result) override {        
         reduce_core(in, result);
     }
 
@@ -92,10 +89,10 @@ struct unit_subsumption_tactic : public tactic {
         m_context.push();
         for (unsigned j = 0; j < m_clause_count; ++j) {
             if (i == j) {
-                m_context.assert_expr(m.mk_not(m_clauses[j].get()));
+                m_context.assert_expr(m.mk_not(m_clauses.get(j)));
             }
             else if (!m_is_deleted.get(j)) {
-                m_context.assert_expr(m_clauses[j].get());
+                m_context.assert_expr(m_clauses.get(j));
             }
         }
         m_context.push(); // force propagation
@@ -109,9 +106,7 @@ struct unit_subsumption_tactic : public tactic {
     }
 
     void insert_result(goal_ref& result) {        
-        for (unsigned i = 0; i < m_deleted.size(); ++i) {
-            result->update(m_deleted[i], m.mk_true()); // TBD proof?
-        }
+        for (auto  d : m_deleted) result->update(d, m.mk_true()); // TBD proof?
     }
 
     void init(goal_ref const& g) {
@@ -119,6 +114,7 @@ struct unit_subsumption_tactic : public tactic {
         m_is_deleted.reset();
         m_is_deleted.resize(g->size());
         m_deleted.reset();
+        
     }
 
     expr* new_bool(unsigned& count, expr_ref_vector& v, char const* name) {

@@ -198,7 +198,6 @@ struct goal2nlsat::imp {
                     throw tactic_exception("apply simplify before applying nlsat");
                 case OP_AND:
                 case OP_OR:
-                case OP_IFF:
                 case OP_XOR:
                 case OP_NOT:
                 case OP_IMPLIES:
@@ -252,6 +251,7 @@ struct goal2nlsat::imp {
     }
 
     void operator()(goal const & g) {
+        TRACE("goal2nlsat", g.display(tout););
         if (has_term_ite(g))
             throw tactic_exception("eliminate term-ite before applying nlsat");
         unsigned sz = g.size();

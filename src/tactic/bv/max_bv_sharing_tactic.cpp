@@ -24,7 +24,6 @@ Revision History:
 #include "ast/rewriter/rewriter_def.h"
 #include "util/obj_pair_hashtable.h"
 #include "ast/ast_lt.h"
-#include "util/cooperate.h"
 
 class max_bv_sharing_tactic : public tactic {
     
@@ -61,7 +60,6 @@ class max_bv_sharing_tactic : public tactic {
         }
 
         bool max_steps_exceeded(unsigned num_steps) const { 
-            cooperate("max bv sharing");
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
             return num_steps > m_max_steps;
@@ -237,12 +235,8 @@ class max_bv_sharing_tactic : public tactic {
         ast_manager & m() const { return m_rw.m(); }
                 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("max-bv-sharing", *g);
             bool produce_proofs = g->proofs_enabled();
             
@@ -298,12 +292,9 @@ public:
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
     void cleanup() override {

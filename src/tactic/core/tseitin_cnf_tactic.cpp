@@ -49,12 +49,12 @@ Author:
 Notes:
 
 --*/
+#include "ast/ast_pp.h"
 #include "tactic/tactical.h"
 #include "tactic/goal_shared_occs.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "tactic/core/simplify_tactic.h"
-#include "util/cooperate.h"
 
 static void swap_if_gt(expr * & n1, expr * & n2) {
     if (n1->get_id() > n2->get_id())
@@ -80,7 +80,7 @@ class tseitin_cnf_tactic : public tactic {
             frame(app * n):m_t(n), m_first(true) {}
         };
         
-        typedef filter_model_converter mc;
+        typedef generic_model_converter mc;
         
         ast_manager &              m;
         svector<frame>             m_frame_stack;
@@ -176,7 +176,6 @@ class tseitin_cnf_tactic : public tactic {
                 sign = !sign;
                 goto start;
             case OP_OR:
-            case OP_IFF:
                 l = nullptr;
                 m_cache.find(to_app(n), l);
                 SASSERT(l != 0);
@@ -223,7 +222,6 @@ class tseitin_cnf_tactic : public tactic {
                     goto start;
                 }
             case OP_OR:
-            case OP_IFF:
                 visited = false;
                 push_frame(to_app(n));
                 return;
@@ -271,6 +269,7 @@ class tseitin_cnf_tactic : public tactic {
                 !m.is_or(c1, c1, c2))
                 return false;
             
+            SASSERT(to_app(n)->get_num_args() == 3);
             swap_if_gt(a1, a2);
             swap_if_gt(b1, b2);
             swap_if_gt(c1, c2);
@@ -344,7 +343,7 @@ class tseitin_cnf_tactic : public tactic {
             app * v = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             m_fresh_vars.push_back(v);
             if (m_mc)
-                m_mc->insert(v->get_decl());
+                m_mc->hide(v->get_decl());
             return v;
         }
         
@@ -467,6 +466,37 @@ class tseitin_cnf_tactic : public tactic {
                 return DONE;
             }
             return NO;
+        }
+
+        mres match_iff_or(app * t, bool first, bool root) {
+            expr * a = nullptr, * _b = nullptr;
+            if (!root) return NO;
+            if (!is_iff(m, t, a, _b)) return NO;
+            bool sign = m.is_not(_b, _b);
+            if (!m.is_or(_b)) return NO;
+            app* b = to_app(_b);
+            if (first) {
+                bool visited = true;
+                visit(a, visited);
+                for (expr* arg : *b) {
+                    visit(arg, visited);
+                }
+                if (!visited)
+                    return CONT;
+            }
+            expr_ref la(m), nla(m), nlb(m), lb(m);
+            get_lit(a, sign, la);
+            inv(la, nla);
+            expr_ref_buffer lits(m); 
+            lits.push_back(nla);
+            for (expr* arg : *b) {
+                get_lit(arg, false, lb);
+                lits.push_back(lb);
+                inv(lb, nlb);
+                mk_clause(la, nlb);
+            }
+            mk_clause(lits.size(), lits.c_ptr());
+            return DONE;
         }
         
         mres match_iff(app * t, bool first, bool root) {
@@ -756,7 +786,6 @@ class tseitin_cnf_tactic : public tactic {
         
         
         void checkpoint() {
-            cooperate("tseitin cnf");
             if (m.canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             if (memory::get_allocation_size() > m_max_memory)
@@ -786,6 +815,7 @@ class tseitin_cnf_tactic : public tactic {
                 TRY(match_or_3and);
                 TRY(match_or);
                 TRY(match_iff3);
+                // TRY(match_iff_or);
                 TRY(match_iff);
                 TRY(match_ite);
                 TRY(match_not);
@@ -799,16 +829,14 @@ class tseitin_cnf_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("tseitin-cnf", *g);
             fail_if_proof_generation("tseitin-cnf", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled(); 
+
+            TRACE("tseitin_cnf", g->display(tout););
 
             m_occs(*g);
             reset_cache();
@@ -817,7 +845,7 @@ class tseitin_cnf_tactic : public tactic {
             m_frame_stack.reset();
             m_clauses.reset();
             if (m_produce_models)
-                m_mc = alloc(filter_model_converter, m);
+                m_mc = alloc(generic_model_converter, m, "tseitin");
             else
                 m_mc = nullptr;
 
@@ -843,9 +871,7 @@ class tseitin_cnf_tactic : public tactic {
                     g->assert_expr(cls);
             }
             if (m_produce_models && !m_fresh_vars.empty()) 
-                mc = m_mc.get();
-            else
-                mc = nullptr;
+                g->add(m_mc.get());
             g->inc_depth();
             result.push_back(g.get());
             TRACE("tseitin_cnf", g->display(tout););
@@ -883,12 +909,8 @@ public:
         r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
         report_tactic_progress(":cnf-aux-vars", m_imp->m_num_aux_vars);
     }
     

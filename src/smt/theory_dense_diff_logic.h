@@ -241,8 +241,6 @@ namespace smt {
         
         bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
 
-        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
-
         void display(std::ostream & out) const override;
         virtual void display_atom(std::ostream & out, atom * a) const;
         void collect_statistics(::statistics & st) const override;
@@ -271,7 +269,7 @@ namespace smt {
         inf_eps_rational<inf_rational> value(theory_var v) override;
         theory_var add_objective(app* term) override;
         virtual expr_ref mk_gt(theory_var v, inf_eps const& val);
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val);
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val);
         
         // -----------------------------------
         //

@@ -15,21 +15,21 @@
 // Unit tests fail by asserting.
 // If they return, we assume the unit test succeeds
 // and print "PASS" to indicate success.
-// 
+//
 
 #define TST(MODULE) {                                        \
         std::string s("test ");                              \
         s += #MODULE;                                        \
         void tst_##MODULE();                                 \
         if (do_display_usage)                                \
-            std::cout << #MODULE << "\n";                    \
+            std::cout << "    " << #MODULE << "\n";          \
         for (int i = 0; i < argc; i++)                       \
             if (test_all || strcmp(argv[i], #MODULE) == 0) { \
                 enable_trace(#MODULE);                       \
                 enable_debug(#MODULE);                       \
                 timeit timeit(true, s.c_str());              \
                 tst_##MODULE();                              \
-                    std::cout << "PASS" << std::endl;        \
+                std::cout << "PASS" << std::endl;            \
             }                                                \
     }
 
@@ -38,15 +38,15 @@
     s += #MODULE;                                       \
     void tst_##MODULE(char** argv, int argc, int& i);   \
     if (do_display_usage)                               \
-        std::cout << #MODULE << "\n";                   \
+        std::cout << "    " << #MODULE << "(...)\n";    \
     for (int i = 0; i < argc; i++)                      \
-    if (strcmp(argv[i], #MODULE) == 0) {            \
-            enable_trace(#MODULE);                      \
-        enable_debug(#MODULE);                      \
-        timeit timeit(true, s.c_str());             \
-        tst_##MODULE(argv, argc, i);                \
-            std::cout << "PASS" << std::endl;           \
-    }                                               \
+    if (strcmp(argv[i], #MODULE) == 0) {                \
+        enable_trace(#MODULE);                          \
+        enable_debug(#MODULE);                          \
+        timeit timeit(true, s.c_str());                 \
+        tst_##MODULE(argv, argc, i);                    \
+        std::cout << "PASS" << std::endl;               \
+    }                                                   \
 }
 
 void error(const char * msg) {
@@ -72,66 +72,72 @@ void display_usage() {
 #ifdef Z3DEBUG
     std::cout << "  /dbg:tag    enable assertions tagged with <tag>.\n";
 #endif
+    std::cout << "\nModule names:\n";
 }
 
 void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& test_all) {
     int i = 1;
-    while (i < argc) {
-    char * arg = argv[i], *eq_pos = nullptr;
-
-    if (arg[0] == '-' || arg[0] == '/') {
-        char * opt_name = arg + 1;
-        char * opt_arg  = nullptr;
-        char * colon    = strchr(arg, ':');
-        if (colon) {
-        opt_arg = colon + 1;
-        *colon  = 0;
-        }
-        if (strcmp(opt_name, "h") == 0 ||
-                strcmp(opt_name, "?") == 0) {
+    if (argc == 1) {
         display_usage();
+        do_display_usage = true;
+    }
+    while (i < argc) {
+        char * arg = argv[i];
+        char * eq_pos = nullptr;
+
+        if (arg[0] == '-' || arg[0] == '/') {
+            char * opt_name = arg + 1;
+            char * opt_arg  = nullptr;
+            char * colon    = strchr(arg, ':');
+            if (colon) {
+                opt_arg = colon + 1;
+                *colon  = 0;
+            }
+            if (strcmp(opt_name, "h") == 0 ||
+                strcmp(opt_name, "?") == 0) {
+                display_usage();
                 do_display_usage = true;
                 return;
-        }
-        else if (strcmp(opt_name, "v") == 0) {
-        if (!opt_arg)
-            error("option argument (/v:level) is missing.");
-        long lvl = strtol(opt_arg, nullptr, 10);
-        set_verbosity_level(lvl);
-        }
-        else if (strcmp(opt_name, "w") == 0) {
+            }
+            else if (strcmp(opt_name, "v") == 0) {
+                if (!opt_arg)
+                    error("option argument (/v:level) is missing.");
+                long lvl = strtol(opt_arg, nullptr, 10);
+                set_verbosity_level(lvl);
+            }
+            else if (strcmp(opt_name, "w") == 0) {
                 enable_warning_messages(true);
-        }
-        else if (strcmp(opt_name, "a") == 0) {
+            }
+            else if (strcmp(opt_name, "a") == 0) {
                 test_all = true;
-        }
+            }
 #ifdef _TRACE
-        else if (strcmp(opt_name, "tr") == 0) {
-        if (!opt_arg)
-            error("option argument (/tr:tag) is missing.");
-        enable_trace(opt_arg);
-        }
+            else if (strcmp(opt_name, "tr") == 0) {
+                if (!opt_arg)
+                    error("option argument (/tr:tag) is missing.");
+                enable_trace(opt_arg);
+            }
 #endif
 #ifdef Z3DEBUG
-        else if (strcmp(opt_name, "dbg") == 0) {
-        if (!opt_arg)
-            error("option argument (/dbg:tag) is missing.");
-        enable_debug(opt_arg);
-        }
+            else if (strcmp(opt_name, "dbg") == 0) {
+                if (!opt_arg)
+                    error("option argument (/dbg:tag) is missing.");
+                enable_debug(opt_arg);
+            }
 #endif
-    }
+        }
         else if (arg[0] != '"' && (eq_pos = strchr(arg, '='))) {
             char * key   = arg;
             *eq_pos      = 0;
-            char * value = eq_pos+1; 
+            char * value = eq_pos+1;
             try {
                 gparams::set(key, value);
             }
             catch (z3_exception& ex) {
                 std::cerr << ex.msg() << "\n";
             }
-        }            
-    i++;
+        }
+        i++;
     }
 }
 
@@ -142,7 +148,6 @@ int main(int argc, char ** argv) {
     bool test_all = false;
     parse_cmd_line_args(argc, argv, do_display_usage, test_all);
     TST(random);
-    TST(vector);
     TST(symbol_table);
     TST(region);
     TST(symbol);
@@ -171,6 +176,7 @@ int main(int argc, char ** argv) {
     TST(var_subst);
     TST(simple_parser);
     TST(api);
+    TST(cube_clause);
     TST(old_interval);
     TST(get_implied_equalities);
     TST(arith_simplifier_plugin);
@@ -211,6 +217,7 @@ int main(int argc, char ** argv) {
     if (test_all) return 0;
     TST(ext_numeral);
     TST(interval);
+    TST(vector);
     TST(f2n);
     TST(hwf);
     TST(trigo);
@@ -237,17 +244,15 @@ int main(int argc, char ** argv) {
     TST(theory_pb);
     TST(simplex);
     TST(sat_user_scope);
-    TST(pdr);
     TST_ARGV(ddnf);
     TST(ddnf1);
     TST(model_evaluator);
-    TST_ARGV(lp);
     TST(get_consequences);
     TST(pb2bv);
+    TST_ARGV(sat_lookahead);
+    TST_ARGV(sat_local_search);
     TST_ARGV(cnf_backbones);
+    TST(bdd);
+    TST(solver_pool);
     //TST_ARGV(hs);
 }
-
-void initialize_mam() {}
-void finalize_mam() {}
-

@@ -26,6 +26,7 @@ Revision History:
 #include "smt/params/theory_array_params.h"
 #include "smt/params/theory_bv_params.h"
 #include "smt/params/theory_str_params.h"
+#include "smt/params/theory_seq_params.h"
 #include "smt/params/theory_pb_params.h"
 #include "smt/params/theory_datatype_params.h"
 #include "smt/params/preprocessor_params.h"
@@ -38,7 +39,8 @@ enum phase_selection {
     PS_CACHING_CONSERVATIVE,
     PS_CACHING_CONSERVATIVE2, // similar to the previous one, but alternated default config from time to time.
     PS_RANDOM,
-    PS_OCCURRENCE
+    PS_OCCURRENCE,
+    PS_THEORY
 };
 
 enum restart_strategy {
@@ -79,6 +81,7 @@ struct smt_params : public preprocessor_params,
                     public theory_array_params,
                     public theory_bv_params,
                     public theory_str_params,
+                    public theory_seq_params,
                     public theory_pb_params,
                     public theory_datatype_params {
     bool             m_display_proof;
@@ -99,11 +102,13 @@ struct smt_params : public preprocessor_params,
     unsigned         m_phase_caching_off;
     bool             m_minimize_lemmas;
     unsigned         m_max_conflicts;
+    unsigned         m_restart_max;
     bool             m_simplify_clauses;
     unsigned         m_tick;
     bool             m_display_features;
     bool             m_new_core2th_eq;
     bool             m_ematching;
+    bool             m_clause_proof;
 
     // -----------------------------------
     //
@@ -211,8 +216,6 @@ struct smt_params : public preprocessor_params,
     bool                m_preprocess;  // temporary hack for disabling all preprocessing..
     bool                m_user_theory_preprocess_axioms;
     bool                m_user_theory_persist_axioms;
-    unsigned            m_timeout;
-    unsigned            m_rlimit;
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.
     bool                m_dump_goal_as_smt;
@@ -258,6 +261,7 @@ struct smt_params : public preprocessor_params,
         m_display_features(false),
         m_new_core2th_eq(true),
         m_ematching(true),
+        m_clause_proof(false),
         m_case_split_strategy(CS_ACTIVITY_DELAY_NEW),
         m_rel_case_split_order(0),
         m_lookahead_diseq(false),
@@ -299,8 +303,6 @@ struct smt_params : public preprocessor_params,
         m_preprocess(true), // temporary hack for disabling all preprocessing..
         m_user_theory_preprocess_axioms(false),
         m_user_theory_persist_axioms(false),
-        m_timeout(0),
-        m_rlimit(0),
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_dump_goal_as_smt(false),
