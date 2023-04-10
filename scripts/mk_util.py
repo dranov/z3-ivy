@@ -1525,20 +1525,20 @@ class PythonInstallComponent(Component):
         MakeRuleCmd.install_files(out, os.path.join('python', 'z3', '*.py'),
                                   os.path.join(self.pythonPkgDir, 'z3'),
                                   in_prefix=self.in_prefix_install)
-        if sys.version >= "3":
-            pythonPycacheDir = os.path.join(self.pythonPkgDir, 'z3', '__pycache__')
-            MakeRuleCmd.make_install_directory(out,
-                                               pythonPycacheDir,
-                                               in_prefix=self.in_prefix_install)
-            MakeRuleCmd.install_files(out,
-                                      os.path.join('python', 'z3', '__pycache__', '*.pyc'),
-                                      pythonPycacheDir,
-                                      in_prefix=self.in_prefix_install)
-        else:
-            MakeRuleCmd.install_files(out,
-                                      os.path.join('python', 'z3', '*.pyc'),
-                                      os.path.join(self.pythonPkgDir,'z3'),
-                                      in_prefix=self.in_prefix_install)
+        # if sys.version >= "3":
+        #     pythonPycacheDir = os.path.join(self.pythonPkgDir, 'z3', '__pycache__')
+        #     MakeRuleCmd.make_install_directory(out,
+        #                                        pythonPycacheDir,
+        #                                        in_prefix=self.in_prefix_install)
+        #     MakeRuleCmd.install_files(out,
+        #                               os.path.join('python', 'z3', '__pycache__', '*.pyc'),
+        #                               pythonPycacheDir,
+        #                               in_prefix=self.in_prefix_install)
+        # else:
+        #     MakeRuleCmd.install_files(out,
+        #                               os.path.join('python', 'z3', '*.pyc'),
+        #                               os.path.join(self.pythonPkgDir,'z3'),
+        #                               in_prefix=self.in_prefix_install)
 
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
