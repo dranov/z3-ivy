@@ -27,6 +27,9 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
 
+class foo {
+};
+
 // -----------------------------------
 //
 // parameter
@@ -1083,8 +1086,9 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     SASSERT(is_proof(k));
 
     if (!check_proof_sorts(static_cast<basic_op_kind>(k), arity, domain))
-        m_manager->raise_exception("Invalid proof object.");
-
+        //        m_manager->raise_exception("Invalid proof object.");
+        throw foo();
+        
     if (num_parameters == 0) {
         return mk_proof_decl(static_cast<basic_op_kind>(k), arity - 1);
     }
@@ -1116,8 +1120,9 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     SASSERT(is_proof(k));
 
     if (!check_proof_args(static_cast<basic_op_kind>(k), num_args, args))
-        m_manager->raise_exception("Invalid proof object.");
-
+        // m_manager->raise_exception("Invalid proof object.");
+        throw foo();
+        
     if (num_parameters == 0) {
         return mk_proof_decl(static_cast<basic_op_kind>(k), num_args - 1);
     }

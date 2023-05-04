@@ -2953,9 +2953,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
         // Push existentially quantified localization vars outward
         // as far as possible. Outer means lower in the order.
         // This has the effect of strengthening the interpolant
+        std::cout << "reordering quantifiers\n";
         for(int i = 0; i < localization_vars.size(); i++){
             LocVar &lv = localization_vars[i];
             if (pv->in_range(lv.frame,rng)) {  // if is existential
+                std::cout << "existential:"; print_expr(std::cout,lv.var); std::cout << "\n";
                 for(int j = i-1; j >= 0; j--) {
                     if (!occurs_in(localization_vars[j].var, localization_vars[j+1].term)) {
                         std::cout << "swapping "; print_expr(std::cout,localization_vars[j].var); std::cout << " and "; print_expr(std::cout,localization_vars[j+1].var); std::cout << "\n";
