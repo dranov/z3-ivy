@@ -745,7 +745,7 @@ public:
 
     void print_lit(const ast &lit){
         ast abslit = is_not(lit) ? arg(lit,0) : lit;
-        if(!is_literal_or_lit_iff(lit)){
+        if(false && !is_literal_or_lit_iff(lit)){
             if(is_not(lit)) std::cout << "~";
             int id = ast_id(abslit);
             asts_by_id[id] = abslit;
@@ -1225,19 +1225,50 @@ public:
         return iproof->make_cut_rule(my_con,d,cut_con,res);
     }
 
+    // Translate a proof of p = q, where p and q are literals, into
+    // a proof of the clause p -> q. This assumes that p is not mixed.
+    // The rewriting comes from boolean simplification of quantifier instantiations
+    // and can use known unit clauses. Literal p cannot be mixed in this case
+    // because non-local instantiation terms are eliminated by quantifiation.
+    
+    // Iproof::node RewriteLit(const ast &rew){
+    //     if(pr(rew) == PR_MONOTONICITY){
+            
+    //     if (op(arg(conc(prem(rew,i)),0)) == Or) {
+    //         Iproof::node left = 
+    //     }
+    // }
+        
     Iproof::node RewriteClause(Iproof::node clause, const ast &rew){
         if(pr(rew) == PR_MONOTONICITY){
             int nequivs = num_prems(rew);
             for(int i = 0; i < nequivs; i++){
-                Iproof::node equiv_pf = translate_main(prem(rew,i),false);
-                ast equiv = conc(prem(rew,i));
-                clause = iproof->make_mp(equiv,clause,equiv_pf);
+                try {
+                    if(false && op(arg(conc(prem(rew,i)),0)) == Or){
+                        std::cout << "got here\n";
+                        clause = RewriteClause(clause,prem(rew,i));
+                    } else {
+                        Iproof::node equiv_pf = translate_main(prem(rew,i),false);
+                        ast equiv = conc(prem(rew,i));
+                        clause = iproof->make_mp(equiv,clause,equiv_pf);
+                    }
+                }
+                catch (const unsupported &exc) {
+                    show_step(rew);
+                    throw exc;
+                }
             }
             return clause;
         }
         if(pr(rew) == PR_TRANSITIVITY){
-            clause = RewriteClause(clause,prem(rew,0));
-            clause = RewriteClause(clause,prem(rew,1));
+            try {
+                clause = RewriteClause(clause,prem(rew,0));
+                clause = RewriteClause(clause,prem(rew,1));
+            }
+            catch (const unsupported &exc) {
+                show_step(rew);
+                throw exc;
+            }
             return clause;
         }
         if(pr(rew) == PR_REWRITE){
@@ -1690,9 +1721,19 @@ public:
         return false;
     }
 
+    Iproof::node translate_main(ast proof, bool expect_clause = true){
+        try {
+            return translate_main_int(proof, expect_clause);
+        }
+        catch (const unsupported &exc) {
+            show_step(proof);
+            throw exc;
+        }
+    }
+    
     // translate a Z3 proof term into interpolating proof system
 
-    Iproof::node translate_main(ast proof, bool expect_clause = true){
+    Iproof::node translate_main_int(ast proof, bool expect_clause = true){
         AstToIpf &tr = translation; 
         hash_map<ast,Iproof::node> &trc = expect_clause ? tr.first : tr.second;
         std::pair<ast,Iproof::node> foo(proof,Iproof::node());
@@ -1856,6 +1897,13 @@ public:
                     ast z = arg(conc(prem(proof,1)),1);
                     res = iproof->make_transitivity(x,y,z,args[0],args[1]);
                 }
+                break;
+            }
+            case PR_REWRITE: {
+                std::cout << "rewrite:\n";
+                print_expr(std::cout,conc(proof));
+                res = iproof->make_axiom(lits);
+                print_expr(std::cout,res);
                 break;
             }
             case PR_TRANSITIVITY_STAR: {
@@ -2069,6 +2117,10 @@ public:
     // We actually compute the interpolant here and then produce a proof consisting of just a lemma
 
     iz3proof::node translate(ast proof, iz3proof &dst) override {
+        std::cout << "proof:\n";
+        print_expr(std::cout,proof);
+        std::cout << "--------------------\n";
+        
         std::vector<ast> itps;
         scan_skolems(proof);
         for(int i = 0; i < frames -1; i++){
