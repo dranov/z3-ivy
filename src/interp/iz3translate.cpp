@@ -52,6 +52,9 @@ using namespace stl_ext;
 
 #define throw_unsupported(_e_) { TRACE("iz3", tout << expr_ref((expr*)_e_.raw(), *_e_.mgr()) << "\n";); throw unsupported(_e_); }
 
+#define throw_unsupported_msg(msg,_e_) {std::cout << msg << "\n"; TRACE("iz3", tout << expr_ref((expr*)_e_.raw(), *_e_.mgr()) << "\n";); throw unsupported(_e_); }
+
+
 class iz3translation_full : public iz3translation {
 public:
 
@@ -103,6 +106,8 @@ public:
 
     symb commute;
 
+    AstToInt quant_assert_frames;
+    
 public:
 
  
@@ -207,6 +212,10 @@ public:
                 if(res == INT_MAX || res == bar) res = bar;
                 else if(bar != INT_MAX) res = -1;
             }
+        }
+        opr top_op = op(conc(proof));
+        if((top_op == Exists || top_op == Forall) && res != INT_MAX && res != -1) {
+            quant_assert_frames[conc(proof)] = res;
         }
         return res;
     }
@@ -1260,10 +1269,10 @@ public:
             }
             return clause;
         }
-        if(pr(rew) == PR_TRANSITIVITY){
+        if(pr(rew) == PR_TRANSITIVITY || pr(rew) == PR_TRANSITIVITY_STAR){
             try {
-                clause = RewriteClause(clause,prem(rew,0));
-                clause = RewriteClause(clause,prem(rew,1));
+                for(int i = 0; i < num_prems(rew); i++)
+                    clause = RewriteClause(clause,prem(rew,i));
             }
             catch (const unsupported &exc) {
                 show_step(rew);
@@ -1274,7 +1283,7 @@ public:
         if(pr(rew) == PR_REWRITE){
             return clause; // just hope the rewrite does nothing!
         }
-        throw_unsupported(rew);
+        throw_unsupported_msg("unsuported in RewriteClauses",rew);
     }
 
 
@@ -1348,7 +1357,7 @@ public:
   
     ast commute_equality_iff(const ast &con){
         if(op(con) != Iff || op(arg(con,0)) != Equal)
-            throw_unsupported(con);
+            throw_unsupported_msg("unsupported in commute_equality_iff",con);
         return make(Iff,commute_equality(arg(con,0)),commute_equality(arg(con,1)));
     }
   
@@ -1370,11 +1379,12 @@ public:
         case PR_MONOTONICITY:
         case PR_SYMMETRY:
         case PR_TRANSITIVITY:
+        case PR_TRANSITIVITY_STAR:
         case PR_COMMUTATIVITY:
             prs.push_back(con);
             return clone(proof,prs);
         default:
-            throw_unsupported(proof);
+            throw_unsupported_msg("unsupported in twist",proof);
         }
     }
 
@@ -1721,6 +1731,25 @@ public:
         return false;
     }
 
+    Iproof::node or_lit_to_clause(Iproof::node res, ast con) {
+        std::cout << "mp/def-axion workaround!\n res:\n";
+        print_expr(std::cout,res);
+        std::vector<ast> ax_lits;
+        for(int i = 0; i < num_args(con); i++) {
+            ax_lits.push_back(arg(con,i));
+        }
+        ax_lits.push_back(make(Not,con));
+        auto axpf = iproof->make_axiom(ax_lits);
+        std::cout << "\naxpf:\n";
+        print_expr(std::cout,res);
+        ax_lits.pop_back();
+        res = iproof->make_resolution(con,ax_lits,axpf,res);
+        std::cout << "\nnew res:\n";
+        print_expr(std::cout,res);
+        std::cout << "\n";
+        return res;
+    }
+
     Iproof::node translate_main(ast proof, bool expect_clause = true){
         try {
             return translate_main_int(proof, expect_clause);
@@ -1793,12 +1822,16 @@ public:
                     return res;
                 }
             }
+
+#if 1
             if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or && op(conc(prem(proof,0))) == Or){
                 Iproof::node clause = translate_main(prem(proof,0),true);
                 res = RewriteClause(clause,prem(proof,1));
+                std::cout << "after rewrite clause: "; print_expr(std::cout,res); std::cout << "\n";
                 return res;
             }
-
+#endif
+            
 #if 0
             if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or)
                 std::cout << "foo!\n";
@@ -1883,8 +1916,8 @@ public:
 
             for(unsigned i = 0; i < nprems; i++)
                 if(sym(args[i]) == commute
-                   && !(dk == PR_TRANSITIVITY || dk == PR_MODUS_PONENS || dk == PR_SYMMETRY ||  (dk == PR_MONOTONICITY && op(arg(con,0)) == Not)))
-                    throw_unsupported(proof);
+                   && !(dk == PR_TRANSITIVITY || dk == PR_TRANSITIVITY_STAR || dk == PR_MODUS_PONENS || dk == PR_SYMMETRY ||  (dk == PR_MONOTONICITY && op(arg(con,0)) == Not)))
+                    throw_unsupported_msg("cannot handle commute",proof);
 
             switch(dk){
             case PR_TRANSITIVITY: {
@@ -1899,13 +1932,17 @@ public:
                 }
                 break;
             }
+#if 1
             case PR_REWRITE: {
                 std::cout << "rewrite:\n";
                 print_expr(std::cout,conc(proof));
+                std::cout << "\n-----\n";
                 res = iproof->make_axiom(lits);
                 print_expr(std::cout,res);
+                std::cout << "\n-----\n";
                 break;
             }
+#endif
             case PR_TRANSITIVITY_STAR: {
                 // assume the premises are x = y, y = z, z = u, u = v, ..
                 
@@ -1949,6 +1986,12 @@ public:
                     res = make_commuted_modus_ponens(proof,args);
                 else 
                     res = iproof->make_mp(conc(prem(proof,1)),args[0],args[1]);
+                
+                // Workaraund for Z3 bug. Should have used PR_DEF_AXIOM to rewrite the
+                // "or" literal to a clause. 
+                if(expect_clause && op(con) == Or){
+                    res = or_lit_to_clause(res,con);
+                }
                 break;
             }
             case PR_TH_LEMMA: {
@@ -1962,7 +2005,7 @@ public:
                             int nargs = num_args(con);
                             if(farkas_coeffs.size() != (unsigned)nargs){
                                 pfgoto(proof);
-                                throw_unsupported(proof);
+                                throw_unsupported_msg("unsupported in Farkas lemma",proof);
                             }
                             for(int i = 0; i < nargs; i++){
                                 ast lit = mk_not(arg(con,i));
@@ -2000,7 +2043,7 @@ public:
                         get_broken_gcd_test_coeffs(proof,farkas_coeffs);
                         if(farkas_coeffs.size() != nprems){
                             pfgoto(proof);
-                            throw_unsupported(proof);
+                            throw_unsupported_msg("unsupported in GCDTest lemma",proof);
                         }
                         std::vector<Iproof::node> my_prems; my_prems.resize(2);
                         std::vector<ast> my_prem_cons; my_prem_cons.resize(2);
@@ -2023,7 +2066,7 @@ public:
                         if(args.size() > 0)
                             res =  GomoryCutRule2Farkas(proof, conc(proof), args);
                         else
-                            throw_unsupported(proof);
+                            throw_unsupported_msg("unsupported in GomoryCut lemma",proof);
                         break;
                     }
                     case EqPropagateKind: {
@@ -2042,7 +2085,7 @@ public:
                         break;
                     }
                     default:
-                        throw_unsupported(proof);
+                        throw_unsupported_msg("unsupport arith lemma kind",proof);
                     }
                     break;
                 case ArrayTheory: {// nothing fancy for this
@@ -2054,7 +2097,7 @@ public:
                     break;
                 }
                 default:
-                    throw_unsupported(proof);
+                    throw_unsupported_msg("unsupported lemma theory",proof);
                 }
                 break;
             }
@@ -2063,7 +2106,18 @@ public:
                 break;
             }
             case PR_QUANT_INST: {
-                res = iproof->make_axiom(lits);
+                ast quant = arg(arg(conc(proof),0),0);
+                // std::cout << "quant: "; print_expr(std::cout,conc(proof)); std::cout << std::endl;
+                range rng;
+                if(quant_assert_frames.find(quant) != quant_assert_frames.end()){
+                    // std::cout << "assert frame: " << quant_assert_frames[quant] << std::endl; 
+                    range_add(quant_assert_frames[quant],rng);
+                } else {
+                    rng = ast_scope(quant);
+                }
+                res = iproof->make_axiom(lits,rng);
+                // std::cout << "quant proof: "; print_expr(std::cout,res); std::cout << std::endl;
+                
                 break;
             }
             case PR_DEF_AXIOM: { // this should only happen for formulas resulting from quantifier instantiation
@@ -2078,7 +2132,7 @@ public:
                 if(is_local(con))
                     res = args[0];
                 else 
-                    throw_unsupported(proof);
+                    throw_unsupported_msg("unsupported non-local iff-false",proof);
                 break;
             }
             case PR_COMMUTATIVITY: {
@@ -2096,13 +2150,18 @@ public:
                 ast pf = iproof->make_axiom(rule_ax);
                 res_conc.push_back(con);
                 res = iproof->make_resolution(piv,res_conc,pf,args[0]);
+                // Workaraund for Z3 bug. Should have used PR_DEF_AXIOM to rewrite the
+                // "or" literal to a clause. 
+                if(expect_clause && op(con) == Or){
+                    res = or_lit_to_clause(res,con);
+                }
                 break;
             }
             default:
                 IF_VERBOSE(0, verbose_stream() << "Unsupported proof rule: " << expr_ref((expr*)proof.raw(), *proof.mgr()) << "\n";);
                 //                pfgoto(proof);                
                 // SASSERT(0 && "translate_main: unsupported proof rule");
-                throw_unsupported(proof);
+                throw_unsupported_msg("unsupported rule",proof);
             }
         }
 
@@ -2117,9 +2176,28 @@ public:
     // We actually compute the interpolant here and then produce a proof consisting of just a lemma
 
     iz3proof::node translate(ast proof, iz3proof &dst) override {
+
+#if 0
+        ast p = make(function("p",0,0,bool_type()));
+        ast q = make(function("q",0,0,bool_type()));
+        ast r = make(function("r",0,0,bool_type()));
+        ast A = make(Asserted,make(And,make(Equal,p,q),make(Not,q)));
+        ast B = make(Asserted,make(And,make(Or,p,r),make(Not,r)));
+        ast a1 = make(AndElim,B,make(Not,r));
+        ast a2 = make(AndElim,B,make(Or,p,r));
+        ast a3 = make(AndElim,A,make(Not,q));
+        ast a4 = make(AndElim,A,make(Equal,p,q));
+        proof = make(ModPon,
+                     a2,
+                     make(Mono,
+                          a4,
+                          make(Equal,make(Or,p,r),make(Or,q,r))),
+                     make(Or,q,r));
+#endif
         std::cout << "proof:\n";
         print_expr(std::cout,proof);
-        std::cout << "--------------------\n";
+        std::cout << "\n--------------------\n";
+    
         
         std::vector<ast> itps;
         scan_skolems(proof);
@@ -2131,6 +2209,10 @@ public:
             iproof = iz3proof_itp::create(this,range_downward(i),weak_mode());
             try {
                 Iproof::node ipf = translate_main(proof);
+                std::cout << "ipf:\n";
+                print_expr(std::cout,ipf);
+                std::cout << "\n--------------------\n";
+                
                 ast itp = iproof->interpolate(ipf);
                 itps.push_back(itp);
                 delete iproof;

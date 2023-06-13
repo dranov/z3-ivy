@@ -1085,9 +1085,9 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 
     SASSERT(is_proof(k));
 
-    if (!check_proof_sorts(static_cast<basic_op_kind>(k), arity, domain))
-        //        m_manager->raise_exception("Invalid proof object.");
-        throw foo();
+    // if (!check_proof_sorts(static_cast<basic_op_kind>(k), arity, domain))
+    //     //        m_manager->raise_exception("Invalid proof object.");
+    //     throw foo();
         
     if (num_parameters == 0) {
         return mk_proof_decl(static_cast<basic_op_kind>(k), arity - 1);
@@ -1119,9 +1119,9 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 
     SASSERT(is_proof(k));
 
-    if (!check_proof_args(static_cast<basic_op_kind>(k), num_args, args))
-        // m_manager->raise_exception("Invalid proof object.");
-        throw foo();
+    // if (!check_proof_args(static_cast<basic_op_kind>(k), num_args, args))
+    //     // m_manager->raise_exception("Invalid proof object.");
+    //     throw foo();
         
     if (num_parameters == 0) {
         return mk_proof_decl(static_cast<basic_op_kind>(k), num_args - 1);
@@ -2150,6 +2150,10 @@ void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
                    << " for function " << mk_pp(f,*this)
                    << " supplied sort is "
                    << mk_pp(actual_sort, *this);
+            std::cout << "foo\n";
+            for (int j = 0; j < n; j++)
+                std::cout << "term: " << mk_pp(es[j],*this) << "\n";
+            //            throw foo();
             throw ast_exception(buffer.str().c_str());
         }
     }

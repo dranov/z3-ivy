@@ -540,6 +540,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
                     args[i] = simplify_rec(arg(e,i));
                 placeholder_arg |= is_placeholder(args[i]);
             }
+#if 0
+            std::cout << "simplify: ";
+            print_expr(std::cout,e);
+            std::cout << std::endl;
+#endif
             try {
                 TRACE("duality", print_expr(tout, e); tout << "\n";);
                 opr f = op(e);
@@ -555,6 +560,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
                     else if(g == sum) res = simplify_sum(args);
                     else if(g == exmid) res = simplify_exmid(args);
                     else if(g == cong) res = simplify_cong(args);
+                    else if(g == contra) res = args[0];
 #if 0
                     else if(g == modpon) res = simplify_modpon(args);
                     else if(g == leq2eq) res = simplify_leq2eq(args);
@@ -2988,7 +2994,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast interpolate(const node &pf) override {
         // proof of false must be a formula, with quantified symbols
 #ifndef BOGUS_QUANTS
-        return close_universally(add_quants(z3_simplify(pf)));
+        return close_universally(add_quants(z3_simplify(simplify(pf))));
 #else
         return close_universally(z3_simplify(pf));
 #endif

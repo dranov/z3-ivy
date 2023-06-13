@@ -1230,6 +1230,7 @@ namespace smt {
                   m_ctx.display_literal(tout << " ", lit);
               }
               tout << "\n";);
+        
         init_mk_proof();
         literal consequent;
         if (not_l == null_literal) {

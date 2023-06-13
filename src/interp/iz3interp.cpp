@@ -400,6 +400,11 @@ public:
         collect_conjuncts(cnsts,memo,t);
         for(unsigned i = 0; i < cnsts.size(); i++)
             s.assert_expr(to_expr(cnsts[i].raw()));
+        std::cout << "asserted:\n";
+        for(unsigned i = 0; i < cnsts.size(); i++){
+            print_expr(std::cout,cnsts[i]);
+            std::cout << "\n----\n";
+        }
     }
 
     void get_proof_assumptions(z3pf proof, std::vector<ast> &cnsts, hash_set<ast> &memo){
@@ -521,11 +526,14 @@ lbool iz3interpolate(ast_manager &_m_manager,
     if(options)
         options->apply(itp);
     iz3mgr::ast _tree = itp.cook(tree);
+    //    std::cout << "tree: " << mk_pp(tree, _m_manager) << "\n";
     std::vector<iz3mgr::ast> _cnsts;
     itp.assert_conjuncts(s,_cnsts,_tree);
+    std::cout << "solving...\n";
     profiling::timer_start("solving");
     lbool res = s.check_sat(0,nullptr);
     profiling::timer_stop("solving");
+    std::cout << "done...\n";
     if(res == l_false){
         ast *proof = s.get_proof();
         iz3mgr::ast _proof = itp.cook(proof);

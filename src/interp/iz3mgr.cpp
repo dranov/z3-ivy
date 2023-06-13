@@ -95,6 +95,12 @@ iz3mgr::ast iz3mgr::make(opr op, int n, raw_ast **args){
     case SetComplement: return mki(m_array_fid,OP_SET_COMPLEMENT,n,args);
     case SetSubSet: return mki(m_array_fid,OP_SET_SUBSET,n,args);
     case AsArray:   return mki(m_array_fid,OP_AS_ARRAY,n,args);
+    case UnitRes: return mki(m_basic_fid, PR_UNIT_RESOLUTION, n, args);
+    case ModPon: return mki(m_basic_fid, PR_MODUS_PONENS, n, args);
+    case Mono: return mki(m_basic_fid, PR_MONOTONICITY, n, args);
+    case Asserted: return mki(m_basic_fid, PR_ASSERTED, n, args);
+    case AndElim: return mki(m_basic_fid, PR_AND_ELIM, n, args);
+        
     default:
         assert(0);
         return ast();

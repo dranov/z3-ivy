@@ -244,7 +244,20 @@ namespace smt {
         if (m_manager.is_or(s_instance)) {
             ptr_vector<expr> args;
             args.push_back(m_manager.mk_not(q));
-            args.append(to_app(s_instance)->get_num_args(), to_app(s_instance)->get_args());
+            app *foo = to_app(s_instance);
+            for (int i = 0; i < foo->get_num_args(); i++) {
+                expr *arg = foo->get_arg(i);
+                bool found = false;
+                for (int j = 1; j < args.size(); j++)
+                    if (args[j] == arg) {
+                       found = true;
+                        break;
+                    }
+                if (!found) {
+                    args.push_back(arg);
+                }
+            }
+            //            args.append(to_app(s_instance)->get_num_args(), to_app(s_instance)->get_args());
             lemma = m_manager.mk_or(args.size(), args.c_ptr());
         }
         else if (m_manager.is_false(s_instance)) {
@@ -256,14 +269,27 @@ namespace smt {
         else {
             lemma = m_manager.mk_or(m_manager.mk_not(q), s_instance);
         }
+#if 0
+        expr_ref s_lemma(m_manager);
+        m_context.get_rewriter()(lemma, s_lemma, pr);
+        lemma = s_lemma;
+#endif
         m_instances.push_back(lemma);
         proof_ref pr1(m_manager);
         unsigned proof_id = 0;
+        // std::cout << "lemma: " << mk_pp(lemma, m_manager) << "\n";
         if (m_manager.proofs_enabled()) {
             expr_ref_vector bindings_e(m_manager);
             for (unsigned i = 0; i < num_bindings; ++i) {
                 bindings_e.push_back(bindings[i]->get_owner());
             }
+            proof * qi_pr       = m_manager.mk_quant_inst(lemma, num_bindings, bindings_e.c_ptr());
+            //            pr1                 = m_manager.mk_modus_ponens(qi_pr, pr.get());
+            pr1                 = qi_pr;
+            proof_id            = qi_pr->get_id();
+            
+
+#if 0
             app * bare_lemma    = m_manager.mk_or(m_manager.mk_not(q), instance);
             proof * qi_pr       = m_manager.mk_quant_inst(bare_lemma, num_bindings, bindings_e.c_ptr());
             proof_id            = qi_pr->get_id();
@@ -282,7 +308,9 @@ namespace smt {
                 proof * tr          = m_manager.mk_transitivity(cg, rw);
                 pr1                 = m_manager.mk_modus_ponens(qi_pr, tr);
             }
+#endif
             m_instances.push_back(pr1);
+            //            std::cout << "proof: " << mk_pp(pr1, m_manager) << "\n";
         }
         TRACE("qi_queue", tout << mk_pp(lemma, m_manager) << "\n#" << lemma->get_id() << ":=\n" << mk_ll_pp(lemma, m_manager););
         m_stats.m_num_instances++;

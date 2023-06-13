@@ -200,6 +200,12 @@ class iz3mgr  {
         Exists,
         Variable,
         Uninterpreted,
+        Resolution,
+        UnitRes,
+        ModPon,
+        Mono,
+        Asserted,
+        AndElim,
         Other
     };
 
@@ -619,7 +625,7 @@ class iz3mgr  {
         ::func_decl* d = m().mk_func_decl(name,arity,&sv[0],range);
         return d;
     }
-  
+
     void linear_comb(ast &P, const ast &c, const ast &Q, bool round_off = false);
 
     ast sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs, bool round_off = false);
